@@ -47,33 +47,51 @@ st.markdown("""
 
 
 # --- 1. CONNECT & LOAD DATA ---
-# --- 1. CONNECT & LOAD DATA ---
 @st.cache_data(ttl=600)
 def load_data():
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+    import os
+    import json
+    import gspread
+    import streamlit as st
     
+    client = None
+    
+    # 1. STREAMLIT CLOUD: Try to read from Streamlit's TOML secrets
     try:
-        # 1. First, try to read from Streamlit's secure vault (Cloud deployment)
-        import json
-        creds_dict = dict(st.secrets["gcp_service_account"])
-        creds = ServiceAccountCredentials.from_json_key_dict(creds_dict, scope)
+        if "gcp_service_account" in st.secrets:
+            creds_dict = dict(st.secrets["gcp_service_account"])
+            client = gspread.service_account_from_dict(creds_dict)
     except Exception:
-        # 2. If it fails (no secrets file exists), fallback to your local file (Mac deployment)
-        creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+        pass # If st.secrets doesn't exist, silently ignore and move on
         
-    client = gspread.authorize(creds)
-    sheet = client.open("stock_input") 
-    
-    df_open = pd.DataFrame(sheet.worksheet("OpeningBalance").get_all_records())
-    df_rec = pd.DataFrame(sheet.worksheet("Received").get_all_records())
-    df_iss = pd.DataFrame(sheet.worksheet("Issued").get_all_records())
-    return df_open, df_rec, df_iss
+    # If Streamlit Cloud didn't work, try the next options:
+    if client is None:
+        try:
+            # 2. HUGGING FACE: Try to read from Hugging Face's Environment Variables
+            if "gcp_service_account" in os.environ:
+                creds_dict = json.loads(os.environ["gcp_service_account"])
+                client = gspread.service_account_from_dict(creds_dict)
+                
+            # 3. LOCAL MAC: Fallback to reading the physical file on your computer
+            else:
+                client = gspread.service_account(filename="credentials.json")
+        except Exception as e:
+            raise Exception(f"Failed to load credentials: {e}")
+            
+    try:        
+        sheet = client.open("stock_input") 
+        df_open = pd.DataFrame(sheet.worksheet("OpeningBalance").get_all_records())
+        df_rec = pd.DataFrame(sheet.worksheet("Received").get_all_records())
+        df_iss = pd.DataFrame(sheet.worksheet("Issued").get_all_records())
+        return df_open, df_rec, df_iss
+    except Exception as e:
+        raise Exception(f"Failed to open Google Sheet data: {e}")
 
 try:
-    with st.spinner("Connecting to Google Sheets..."):
+    with st.spinner("Connecting to Google Sheets securely..."):
         df_open, df_rec, df_iss = load_data()
 except Exception as e:
-    st.error(f"Connection Failed. Error: {e}")
+    st.error(f"Connection Failed: {e}")
     st.stop()
 
 # --- 2. DATA CLEANING & DICTIONARIES ---

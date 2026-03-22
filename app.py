@@ -134,7 +134,7 @@ if not st.session_state["authenticated"]:
 # This banner only prints AFTER they successfully log in!
 st.markdown("""
 <div class="main-banner">
-    <h1>📦 Nexus Inventory Command</h1>
+    <h1>📦 MFM - Inventory Insights</h1>
 </div>
 """, unsafe_allow_html=True)
 

@@ -2,12 +2,13 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
 import plotly.express as px
 from datetime import datetime
+import os
+import json
 
 # --- PAGE SETUP & CUSTOM CSS ---
-st.set_page_config(page_title="Inventory Dashboard (SSR 1.6)", page_icon="📦", layout="wide")
+st.set_page_config(page_title="Inventory Insights - SSR 1.6", page_icon="📦", layout="wide")
 
 st.markdown("""
 <style>
@@ -16,14 +17,14 @@ st.markdown("""
         background-color: #e6ebf1 !important;
     }
     
-    /* Optional: Make the text inside the sidebar a matching dark blue for contrast */
+    /* 2. Make the text inside the sidebar a matching dark blue */
     section[data-testid="stSidebar"] p, 
     section[data-testid="stSidebar"] label, 
     section[data-testid="stSidebar"] h3 {
         color: #0F4C81 !important;
     }
 
-    /* 2. Custom Header Banner */
+    /* 3. Custom Header Banner (For Dashboard) */
     .main-banner {
         background: linear-gradient(135deg, #0F4C81, #1E3A8A); 
         padding: 20px;
@@ -40,11 +41,118 @@ st.markdown("""
         font-weight: 600;
     }
 </style>
+""", unsafe_allow_html=True)
+
+
+# ==========================================
+# --- 0. AUTHENTICATION (LOGIN PAGE) ---
+# ==========================================
+
+# Hardcoded Users (Username : Password)
+USER_CREDENTIALS = {
+    "admin": "watermelon2026",
+    "warehouse": "stock2024"
+}
+
+# Initialize session state for login status
+if "authenticated" not in st.session_state:
+    st.session_state["authenticated"] = False
+
+# If the user is NOT logged in, show the styled login form
+if not st.session_state["authenticated"]:
+    
+    # ✨ NEW: Login-Page Only CSS
+    st.markdown("""
+    <style>
+        /* 1. Deep blue gradient background for the whole page */
+        [data-testid="stAppViewContainer"] {
+            background: linear-gradient(135deg, #0a2e4f 0%, #0F4C81 100%);
+            background-size: cover;
+        }
+        
+        /* 2. Hide the sidebar completely on the login page */
+        [data-testid="stSidebar"] {
+            display: none;
+        }
+        
+        /* 3. Make the default top header transparent */
+        [data-testid="stHeader"] {
+            background-color: transparent;
+        }
+        
+        /* 4. Style the login form box so it pops and floats */
+        div[data-testid="stForm"] {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            border: none;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Add vertical space to push the login box down to the middle
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    
+    # Use columns to center the login box perfectly
+    col1, col2, col3 = st.columns([1, 1.2, 1]) 
+    
+    with col2:
+        # Professional Header for Login
+        st.markdown("""
+        <div style='text-align: center; margin-bottom: 20px;'>
+            <h1 style='color: white; font-family: sans-serif; margin-bottom: 0;'>📦 Inventory Insights</h1>
+            <h3 style='color: #c3cfe2; font-family: sans-serif; margin-top: 0; font-weight: 300;'>MFM</h3>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # The Login Form
+        with st.form("login_form", clear_on_submit=True):
+            st.markdown("<h4 style='text-align: center; color: #333;'>Sign In to Continue</h4>", unsafe_allow_html=True)
+            st.write("") # slight padding
+            
+            username = st.text_input("Username", placeholder="Enter your username")
+            password = st.text_input("Password", type="password", placeholder="Enter your password")
+            
+            st.write("") # slight padding
+            submit_button = st.form_submit_button("Secure Login ➔", use_container_width=True)
+            
+            if submit_button:
+                if username in USER_CREDENTIALS and USER_CREDENTIALS[username] == password:
+                    st.session_state["authenticated"] = True
+                    st.rerun() # Refresh the page to load the dashboard!
+                else:
+                    st.error("❌ Invalid username or password. Please try again.")
+    
+    # STOP EXECUTION HERE! Do not load data or render the rest of the app if not logged in.
+    st.stop()
+
+
+# ==========================================
+# --- DASHBOARD STARTS HERE ---
+# ==========================================
+# This banner only prints AFTER they successfully log in!
+st.markdown("""
 <div class="main-banner">
-    <h1>📦 Inventory and Logistic Dashboard (SSR 1.6)</h1>
+    <h1>📦 Nexus Inventory Command</h1>
 </div>
 """, unsafe_allow_html=True)
 
+
+# Add a logout button to the sidebar
+with st.sidebar:
+    if st.button("🚪 Logout", use_container_width=True):
+        st.session_state["authenticated"] = False
+        st.rerun()
+    st.write("---")
+
+
+# --- 1. CONNECT & LOAD DATA ---
+@st.cache_data(ttl=600)
+def load_data():
+    client = None
+    
+# ... (THE REST OF YOUR EXISTING CODE REMAINS EXACTLY THE SAME FROM HERE DOWN) ...
 
 # --- 1. CONNECT & LOAD DATA ---
 @st.cache_data(ttl=600)
